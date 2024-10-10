@@ -13,12 +13,16 @@
 
 	const ONE_THOUSANDTH = 1 / 1000,
 		ONE_SIXTIETH = 1 / 60,
+		ONE_OVER_FIFTEEN_THOUSAND = 1 / 15000,
+		ONE_OVER_THIRTY_THOUSAND = 1 / 30000,
 		dataByPlayer = {};
 
 	let startTime,
 		prevTime,
 		selfPlayerData,
 		currentPlayerData,
+		prevPlayerData = {},
+		currentActionData = {},
 		checkIfWithinGameInterval,
 		checkIfStartedInterval,
 		updateTimersInterval;
@@ -51,6 +55,8 @@
 		prevTime = undefined;
 		selfPlayerData = undefined;
 		currentPlayerData = undefined;
+		prevPlayerData = {};
+		currentActionData = {};
 
 		for (const player in dataByPlayer)
 			delete dataByPlayer[player];
@@ -76,6 +82,95 @@
 			startTimers();
 	}
 
+	function updateCurrentActionTime(timeElapsed) {
+		const currentActionTimer = $('.currentActionTimer');
+
+		let { time } = currentActionData,
+			fontSize,
+			textOutline,
+			textShadow,
+			greenAndBlue = 255,
+			gamePageOpacity = 1;
+
+		time += timeElapsed;
+
+		fontSize = 20 + (time * 0.0002);
+		textOutline = 1 + (time * 0.000002);
+		textShadow = 2 + (time * 0.000004);
+
+		if (time > 15000) {
+			const timeAfter15 = time - 15000;
+			fontSize += timeAfter15 * 0.0005;
+			textOutline += timeAfter15 * 0.000005;
+			textShadow += timeAfter15 * 0.00001;
+
+			if (time > 30000) {
+				const timeAfter30 = time - 30000;
+				fontSize += timeAfter30 * 0.0007;
+				textOutline += timeAfter30 * 0.000007;
+				textShadow += timeAfter30 * 0.000014;
+
+				if (time > 45000) {
+					const timeAfter45 = time - 45000;
+					fontSize += timeAfter45 * 0.001;
+					textOutline += timeAfter45 * 0.00001;
+					textShadow += timeAfter45 * 0.00002;
+
+					if (time > 60000) {
+						const timeAfter60 = time - 60000;
+						greenAndBlue -= Math.min((timeAfter60 * ONE_OVER_FIFTEEN_THOUSAND) * 255, 255);
+						fontSize += timeAfter60 * 0.001;
+						textOutline += timeAfter60 * 0.00001;
+						textShadow += timeAfter60 * 0.00002;
+
+						if (time > 75000) {
+							const timeAfter75 = time - 75000;
+							gamePageOpacity -= Math.min((timeAfter75 * ONE_OVER_THIRTY_THOUSAND) * 0.8, 0.8);
+							fontSize += timeAfter75 * 0.001;
+							textOutline += timeAfter75 * 0.00001;
+							textShadow += timeAfter75 * 0.00002;
+						}
+					}
+				}
+			}
+		}
+
+		$('.game-page').css('opacity', gamePageOpacity);
+		$('.currentActionTimer')
+			.text(convertMillisecondsToMinutesAndSeconds(time))
+			.css({
+				color: 'rgb(255,' + greenAndBlue + ',' + greenAndBlue + ')',
+				fontSize,
+				textShadow: -textOutline + 'px ' + -textOutline + 'px ' + ' #000, ' +
+							-textOutline + 'px ' + textOutline + 'px ' + ' #000, ' +
+							textOutline + 'px ' + -textOutline + 'px ' + ' #000, ' +
+							textShadow + 'px ' + textShadow + 'px ' + ' #000'
+			});
+
+		currentActionData.time = time;
+	}
+
+	function updateCurrentActionData(timeElapsed) {
+		const totalLogLines = $('.log-scroll-container').children().length;
+
+		// If we're still on the same action, increment the current action timer and stop
+		if (currentActionData.totalLogLines === totalLogLines) {
+			updateCurrentActionTime(timeElapsed);
+			return;
+		}
+
+		// Otherwise, reset the current action timer
+
+		// Add an action to whoever was previously taking an action
+		if (currentActionData.player)
+			dataByPlayer[currentActionData.player].totalActions++;
+
+		currentActionData.player = currentPlayerData.name; // Assign the current action to the current player
+		currentActionData.time = 0;
+		currentActionData.totalLogLines = totalLogLines;
+		updateCurrentActionTime(timeElapsed);
+	}
+
 	function updateCurrentPlayerData() {
 		const statusBarText = $('status-bar-ticker').text().toLowerCase();
 
@@ -87,11 +182,13 @@
 		}
 		else currentPlayerData = selfPlayerData;
 
-		const currentPlayerTimerContainer = currentPlayerData.el.parent();
-		if (!currentPlayerTimerContainer.hasClass('on')) {
+		if (currentPlayerData.name !== prevPlayerData.name) {
+			const currentPlayerTimerContainer = currentPlayerData.el.parent();
 			$('.playerTimer').removeClass('on');
 			currentPlayerTimerContainer.addClass('on');
 		}
+
+		prevPlayerData = currentPlayerData;
 	}
 
 	function determineSelf() {
@@ -121,7 +218,7 @@
 		updateCurrentPlayerData();
 
 		clearInterval(checkIfStartedInterval);
-		updateTimersInterval = setInterval(updateTimers, 500);
+		updateTimersInterval = setInterval(updateTimers, 250);
 
 		for (const player in dataByPlayer)
 			dataByPlayer[player].el.text('0:00');
@@ -134,8 +231,9 @@
 		currentPlayerData.time += timeElapsed;
 		currentPlayerData.el.text(convertMillisecondsToMinutesAndSeconds(currentPlayerData.time));
 
-		prevTime = currentTime;
+		updateCurrentActionData(timeElapsed);
 		updateCurrentPlayerData();
+		prevTime = currentTime;
 
 		// If the timer UI has been removed, set up the timers again; this does NOT reset timers to 0,
 		// but it rebuilds and restarts everything else
@@ -144,11 +242,24 @@
 	}
 
 	function setupTimers() {
+		$('.currentActionTimer').remove();
 		$('.timerUi').remove();
 		$('.timerStyles').remove();
 
 		$('body').prepend(`
 			<style class="timerStyles">
+
+				.currentActionTimer {
+					position:absolute;
+					top:5px;
+					left:0;
+					color:#fff;
+					font-size:20px;
+					text-align:center;
+					text-shadow:-1px -1px #000, -1px 1px #000, 1px -1px #000, 2px 2px #000;
+					pointer-events:none;
+					z-index:101;
+				}
 
 				.game-log {
 					height:auto !important;
@@ -171,7 +282,8 @@
 			</style>
 		`);
 
-		const timerUi = $('<div class="timerUi"></div>');
+		const timerUi = $('<div class="timerUi"></div>'),
+			currentActionTimer = $('<div class="currentActionTimer"></div>');
 
 		$('player-info-name').each((index, el) => {
 			const player = $(el).text(),
@@ -183,7 +295,7 @@
 				`).appendTo(timerUi);
 
 			if (!dataByPlayer[player])
-				dataByPlayer[player] = { time: 0 };
+				dataByPlayer[player] = { time: 0, totalActions: 0 };
 
 			dataByPlayer[player].el = playerTimer.find('.time');
 		});
@@ -192,6 +304,10 @@
 
 		const timerUiHeight = timerUi.height();
 		$('.game-log').css('top', timerUiHeight + 34);
+
+		const logContainerWidth = $('.log-container').width();
+		currentActionTimer.css('right', logContainerWidth);
+		$('.timerStyles').after(currentActionTimer);
 
 		clearAllIntervals();
 		checkIfStartedInterval = setInterval(checkIfStarted, 250);
