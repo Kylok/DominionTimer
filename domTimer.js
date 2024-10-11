@@ -313,6 +313,7 @@
 		});
 
 		timerUi.prependTo('.log-container');
+		prevPlayerData = {};
 
 		const timerUiHeight = timerUi.height();
 		$('.game-log').css('top', timerUiHeight + 12);
