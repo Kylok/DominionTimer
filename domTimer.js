@@ -183,9 +183,8 @@
 		else currentPlayerData = selfPlayerData;
 
 		if (currentPlayerData.name !== prevPlayerData.name) {
-			const currentPlayerTimerContainer = currentPlayerData.el.parent();
 			$('.playerTimer').removeClass('on');
-			currentPlayerTimerContainer.addClass('on');
+			currentPlayerData.el.addClass('on');
 		}
 
 		prevPlayerData = currentPlayerData;
@@ -221,7 +220,7 @@
 		updateTimersInterval = setInterval(updateTimers, 250);
 
 		for (const player in dataByPlayer)
-			dataByPlayer[player].el.text('0:00');
+			dataByPlayer[player].timeEl.text('0:00');
 	}
 
 	function updateTimers() {
@@ -229,10 +228,13 @@
 			timeElapsed = currentTime - prevTime;
 
 		currentPlayerData.time += timeElapsed;
-		currentPlayerData.el.text(convertMillisecondsToMinutesAndSeconds(currentPlayerData.time));
-
 		updateCurrentActionData(timeElapsed);
 		updateCurrentPlayerData();
+
+		const { time, totalActions } = currentPlayerData;
+		currentPlayerData.timeEl.text(convertMillisecondsToMinutesAndSeconds(time));
+		//currentPlayerData.totalActionsEl.text(totalActions);
+		//if (totalActions) currentPlayerData.avgActionEl.text(convertMillisecondsToMinutesAndSeconds(time / totalActions));
 		prevTime = currentTime;
 
 		// If the timer UI has been removed, set up the timers again; this does NOT reset timers to 0,
@@ -271,39 +273,49 @@
 					padding:5px;
 				}
 
-				.playerTimer {
+				.playerTimer td {
 					padding:2px 5px;
 				}
 
-				.playerTimer.on {
+				.playerTimer.on td {
 					background-color:#555;
 				}
 
 			</style>
 		`);
 
-		const timerUi = $('<div class="timerUi"></div>'),
+		const timerUi = $('<table class="timerUi"></table>'),
 			currentActionTimer = $('<div class="currentActionTimer"></div>');
 
 		$('player-info-name').each((index, el) => {
 			const player = $(el).text(),
 				playerTimer = $(`
-					<span class="playerTimer">
-						<span class="name">${player}:</span>
-						<span class="time">&mdash;</span>
-					</span>
+					<tr class="playerTimer">
+						<td class="name">${player}:</td>
+						<td class="time">&mdash;</td>
+						<!--
+						<td>Total Actions:</td>
+						<td class="totalActions">&mdash;</td>
+						<td>Avg. Action Time:</td>
+						<td class="avgAction">&mdash;</td>
+						-->
+					</tr>
 				`).appendTo(timerUi);
 
 			if (!dataByPlayer[player])
-				dataByPlayer[player] = { time: 0, totalActions: 0 };
+				dataByPlayer[player] = { name: player, time: 0, totalActions: 0 };
 
-			dataByPlayer[player].el = playerTimer.find('.time');
+			const thisPlayerData = dataByPlayer[player];
+			thisPlayerData.el = playerTimer;
+			thisPlayerData.timeEl = playerTimer.find('.time');
+			thisPlayerData.totalActionsEl = playerTimer.find('.totalActions');
+			thisPlayerData.avgActionEl = playerTimer.find('.avgAction');
 		});
 
 		timerUi.prependTo('.log-container');
 
 		const timerUiHeight = timerUi.height();
-		$('.game-log').css('top', timerUiHeight + 34);
+		$('.game-log').css('top', timerUiHeight + 12);
 
 		const logContainerWidth = $('.log-container').width();
 		currentActionTimer.css('right', logContainerWidth);
@@ -316,6 +328,7 @@
 	function finishGame() {
 		// Mark this game as finished
 		$('body').data('gameFinished', 1);
+		$('.currentActionTimer').remove();
 
 		let finalTimerMessage = '';
 
