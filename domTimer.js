@@ -219,8 +219,12 @@
 		clearInterval(checkIfStartedInterval);
 		updateTimersInterval = setInterval(updateTimers, 250);
 
-		for (const player in dataByPlayer)
-			dataByPlayer[player].timeEl.text('0:00');
+		for (const player in dataByPlayer) {
+			const thisPlayerData = dataByPlayer[player];
+			// If we are rebuilding timers after an undo (or another mid-game situation),
+			// make sure all player timers are updated with their current player times
+			thisPlayerData.timeEl.text(convertMillisecondsToMinutesAndSeconds(thisPlayerData.time));
+		}
 	}
 
 	function updateTimers() {
