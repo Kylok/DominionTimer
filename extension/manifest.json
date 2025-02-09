@@ -1,12 +1,15 @@
 {
     "manifest_version": 3,
-    "name": "Dominion Games Extension",
-    "version": "1.0",
-    "description": "This extension enhances the dominion.games website.",
+    "name": "Dominion Timer",
+    "version": "0.1.0",
+    "description": "Add player timers to dominion.games",
     "content_scripts": [
       {
         "matches": ["https://dominion.games/*"], 
-        "js": ["content.js"]
+        "js": [
+          "jquery-3.7.1.min.js",
+          "content.js"
+        ]
       }
     ],
     "icons": {
