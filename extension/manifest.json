@@ -1,0 +1,18 @@
+{
+    "manifest_version": 3,
+    "name": "Dominion Games Extension",
+    "version": "1.0",
+    "description": "This extension enhances the dominion.games website.",
+    "content_scripts": [
+      {
+        "matches": ["https://dominion.games/*"], 
+        "js": ["content.js"]
+      }
+    ],
+    "icons": {
+      "16": "icon.png",
+      "48": "icon.png",
+      "128": "icon.png"
+    },
+    "permissions": []
+  }
