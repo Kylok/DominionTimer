@@ -2,4 +2,4 @@
 
 1. In Chrome, navigate to `chrome://extensions`
 2. In the top right, enable developer mode.
-3. Select "Load unpacked" and chose the "extension" folder.
+3. Select "Load unpacked" and choose the "extension" folder.
