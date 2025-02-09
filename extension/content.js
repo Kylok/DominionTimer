@@ -9,6 +9,7 @@
 
 	let startTime,
 		prevTime,
+		potentialSelfData,
 		selfPlayerData,
 		currentPlayerData,
 		prevPlayerData = {},
@@ -20,7 +21,7 @@
 		gamePage,
 		logScrollContainer,
 		statusBarTicker,
-		playerTimer,
+		allPlayerTimers,
 		currentActionTimer,
 		gameEndedNotification;
 
@@ -28,7 +29,7 @@
 		gamePage = $('.game-page');
 		logScrollContainer = $('.log-scroll-container');
 		statusBarTicker = $('status-bar-ticker');
-		playerTimer = $('.playerTimer');
+		allPlayerTimers = $('.playerTimer');
 		currentActionTimer = $('.currentActionTimer');
 		gameEndedNotification = $('game-ended-notification');
 	}
@@ -54,11 +55,12 @@
 		clearInterval(updateTimersInterval);
 	}
 
-	function resetTimers() {
+	function initializeTimers() {
 		clearAllIntervals();
 
 		startTime = undefined;
 		prevTime = undefined;
+		potentialSelfData = { time: 0, knownSelf: null, possibilities: {} };
 		selfPlayerData = undefined;
 		currentPlayerData = undefined;
 		prevPlayerData = {};
@@ -66,8 +68,6 @@
 
 		for (const player in dataByPlayer)
 			delete dataByPlayer[player];
-
-		checkIfWithinGameInterval = setInterval(checkIfWithinGame, 500);
 	}
 
 	function checkIfOnScorePage() {
@@ -174,6 +174,8 @@
 			}
 		}
 
+		fontSize = Math.min(fontSize, 800);  // Cap font size at 800 pixels
+
 		gamePage.css('opacity', gamePageOpacity);
 		currentActionTimer
 			.text(convertMillisecondsToMinutesAndSeconds(time))
@@ -218,21 +220,25 @@
 
 		if (statusBarText.includes('waiting for')) {
 			for (const player in dataByPlayer) {
-				if (statusBarText.includes(player.toLowerCase()))
+				if (statusBarText.includes(player.toLowerCase())) {
 					currentPlayerData = dataByPlayer[player];
+					// If we are "waiting for" this player, it's definitely NOT ourself;
+					// remove this player from possible selves
+					removePlayerFromPossibleSelves(player);
+				}
 			}
 		}
 		else currentPlayerData = selfPlayerData;
 
 		if (currentPlayerData.name !== prevPlayerData.name) {
-			$('.playerTimer').removeClass('on');
+			allPlayerTimers.removeClass('on');
 			currentPlayerData.el.addClass('on');
 		}
 
 		prevPlayerData = currentPlayerData;
 	}
 
-	function determineSelf() {
+	function useBestGuessForSelf() {
 		let highestPlayerInfoY = 0;
 
 		$('player-info').each((index, el) => {
@@ -252,11 +258,51 @@
 		});
 	}
 
+	function changeBestGuessForSelf() {
+		const wronglyAssignedTime = potentialSelfData.time,
+			wrongSelf = selfPlayerData.name;
+
+		// Update selfPlayerData to the first possible player
+		const { possibilities } = potentialSelfData;
+		for (const player in possibilities) {
+			selfPlayerData = dataByPlayer[player];
+			break;
+		}
+
+		// Move all time that was added to the player we wrongly thought
+		// was ourself to the player we now think is ourself
+		dataByPlayer[wrongSelf].time -= wronglyAssignedTime;
+		selfPlayerData.time += wronglyAssignedTime;
+	}
+
+	function removePlayerFromPossibleSelves(player) {
+		if (potentialSelfData.knownSelf) return;  // If we've confirmed ourself, stop here
+
+		const { possibilities } = potentialSelfData;
+		delete possibilities[player];
+
+		if (selfPlayerData.name === player)
+			changeBestGuessForSelf();
+
+		let totalPossibilities = 0,
+			lastPossibility;
+
+		for (const player in possibilities) {
+			totalPossibilities++;
+			lastPossibility = player;
+		}
+
+		if (totalPossibilities === 1) {
+			potentialSelfData.knownSelf = lastPossibility;
+			return;
+		}
+	}
+
 	function startTimers() {
 		saveContainerReferences();
 		startTime = Date.now();
 		prevTime = startTime;
-		determineSelf();
+		useBestGuessForSelf();
 		updateCurrentPlayerData();
 
 		clearInterval(checkIfStartedInterval);
@@ -280,6 +326,12 @@
 			timeElapsed = currentTime - prevTime;
 
 		currentPlayerData.time += timeElapsed;
+
+		// If we haven't confirmed ourself yet AND it's our turn (we think!),
+		// add the elapsed time to our potentialSelfData
+		if (!potentialSelfData.knownSelf && currentPlayerData.name ===  selfPlayerData.name)
+			potentialSelfData.time += timeElapsed;
+
 		updateCurrentActionData(timeElapsed);
 		updateCurrentPlayerData();
 
@@ -358,6 +410,8 @@
 			if (!dataByPlayer[player])
 				dataByPlayer[player] = { name: player, time: 0, totalActions: 0 };
 
+			potentialSelfData.possibilities[player] = true;
+
 			const thisPlayerData = dataByPlayer[player];
 			thisPlayerData.el = playerTimer;
 			thisPlayerData.timeEl = playerTimer.find('.time');
@@ -392,11 +446,12 @@
 
 		finalTimerMessage = finalTimerMessage.slice(0, -2) + '.';
 		$('.game-chat-input').val(finalTimerMessage);
-		resetTimers();
+		initializeTimers();
+		checkIfWithinGameInterval = setInterval(checkIfWithinGame, 500);
 	}
 
-	// Mark this timer as initialized and start the first loop
-	$('body').data('timerInitialized', 1);
+	// Initialize timers and start the first loop
+	initializeTimers();
 	checkIfWithinGameInterval = setInterval(checkIfWithinGame, 500);
 
 })();
