@@ -42,6 +42,13 @@
 		return minutes + ':' + seconds.toString().padStart(2, '0');
 	}
 
+	function getMinutesAndSeconds(ms) {
+		const totalSeconds = Math.floor(ms * ONE_THOUSANDTH),
+			minutes = Math.floor(totalSeconds * ONE_SIXTIETH),
+			seconds = totalSeconds - (minutes * 60);
+		return { minutes, seconds, totalSeconds };
+	}
+
 	function getTranslateY(element) {
 		const style = window.getComputedStyle(element),
 			matrix = new DOMMatrixReadOnly(style.transform);
@@ -88,6 +95,7 @@
 	function checkIfGameOver() {
 		// If there's a "game ended notification" on the screen...
 		if (gameEndedNotification.children().length) {
+			updatePlayerPoints();
 			// Mark this game as finished
 			$('.timerUi').addClass('gameFinished');
 
@@ -238,6 +246,20 @@
 		prevPlayerData = currentPlayerData;
 	}
 
+	function updatePlayerPoints() {
+		$('player-info').each((_, el) => {
+			const player = $(el).find('player-info-name .text-fitter-node').text().trim();
+			const vpText = $(el).find('player-info-vp .text-fitter-node').text().trim();
+			const match = vpText.match(/^(\d+)\s*VP$/);
+			if (match) {
+				const points = parseInt(match[1], 10);
+				if (dataByPlayer[player]) {
+					dataByPlayer[player].points = points;
+				}
+			}
+		});
+	}
+
 	function useBestGuessForSelf() {
 		let highestPlayerInfoY = 0;
 
@@ -321,6 +343,8 @@
 
 	function updateTimers() {
 		if (checkIfGameOver()) return;
+
+		updatePlayerPoints();
 
 		const currentTime = Date.now(),
 			timeElapsed = currentTime - prevTime;
@@ -438,10 +462,16 @@
 		$('.currentActionTimer').remove();
 
 		let finalTimerMessage = '';
-
+		let i = 1;
 		for (const player in dataByPlayer) {
-			const time = convertMillisecondsToMinutesAndSeconds(dataByPlayer[player].time);
-			finalTimerMessage += `${player} took ${time}; `;
+			const ms = dataByPlayer[player].time;
+			const { minutes, seconds, totalSeconds } = getMinutesAndSeconds(ms);
+			const time = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+			const points = dataByPlayer[player].points || 0;
+			const minutesFloat = totalSeconds / 60;
+			const ppm = (points / minutesFloat).toFixed(2);
+			finalTimerMessage += `(${i}) ${player} took ${time} (${ppm} points/minute); `;
+    		i++;
 		}
 
 		finalTimerMessage = finalTimerMessage.slice(0, -2) + '.';
