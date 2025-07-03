@@ -95,7 +95,6 @@
 	function checkIfGameOver() {
 		// If there's a "game ended notification" on the screen...
 		if (gameEndedNotification.children().length) {
-			updatePlayerPoints();
 			// Mark this game as finished
 			$('.timerUi').addClass('gameFinished');
 
@@ -246,15 +245,35 @@
 		prevPlayerData = currentPlayerData;
 	}
 
-	function updatePlayerPoints() {
+	function observePlayerPoints() {
 		$('player-info').each((_, el) => {
 			const player = $(el).find('player-info-name .text-fitter-node').text().trim();
-			const vpText = $(el).find('player-info-vp .text-fitter-node').text().trim();
-			const match = vpText.match(/^(\d+)\s*VP$/);
-			if (match) {
-				const points = parseInt(match[1], 10);
-				if (dataByPlayer[player]) {
-					dataByPlayer[player].points = points;
+			const vpContainer = $(el).find('player-info-vp')[0];
+			if (!player || !vpContainer) return;
+
+			// Observe the VP container for any child changes
+			const observer = new MutationObserver(() => {
+				const vpNode = $(vpContainer).find('.text-fitter-node')[0];
+				if (!vpNode) return;
+				const vpText = vpNode.textContent.trim();
+				const match = vpText.match(/^(\d+)\s*VP$/);
+				if (match) {
+					const points = parseInt(match[1], 10);
+					if (dataByPlayer[player]) {
+						dataByPlayer[player].points = points;
+					}
+				}
+			});
+
+			observer.observe(vpContainer, { childList: true, subtree: true, characterData: true });
+
+			// Initialize points immediately
+			const vpNode = $(vpContainer).find('.text-fitter-node')[0];
+			if (vpNode) {
+				const vpText = vpNode.textContent.trim();
+				const match = vpText.match(/^(\d+)\s*VP$/);
+				if (match && dataByPlayer[player]) {
+					dataByPlayer[player].points = parseInt(match[1], 10);
 				}
 			}
 		});
@@ -343,8 +362,6 @@
 
 	function updateTimers() {
 		if (checkIfGameOver()) return;
-
-		updatePlayerPoints();
 
 		const currentTime = Date.now(),
 			timeElapsed = currentTime - prevTime;
@@ -455,6 +472,8 @@
 
 		clearAllIntervals();
 		checkIfStartedInterval = setInterval(checkIfStarted, 250);
+
+		observePlayerPoints();
 	}
 
 	function startScorePage() {
