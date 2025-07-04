@@ -42,6 +42,13 @@
 		return minutes + ':' + seconds.toString().padStart(2, '0');
 	}
 
+	function getMinutesAndSeconds(ms) {
+		const totalSeconds = Math.floor(ms * ONE_THOUSANDTH),
+			minutes = Math.floor(totalSeconds * ONE_SIXTIETH),
+			seconds = totalSeconds - (minutes * 60);
+		return { minutes, seconds, totalSeconds };
+	}
+
 	function getTranslateY(element) {
 		const style = window.getComputedStyle(element),
 			matrix = new DOMMatrixReadOnly(style.transform);
@@ -238,6 +245,40 @@
 		prevPlayerData = currentPlayerData;
 	}
 
+	function observePlayerPoints() {
+		$('player-info').each((_, el) => {
+			const player = $(el).find('player-info-name .text-fitter-node').text().trim();
+			const vpContainer = $(el).find('player-info-vp')[0];
+			if (!player || !vpContainer) return;
+
+			// Observe the VP container for any child changes
+			const observer = new MutationObserver(() => {
+				const vpNode = $(vpContainer).find('.text-fitter-node')[0];
+				if (!vpNode) return;
+				const vpText = vpNode.textContent.trim();
+				const match = vpText.match(/^(\d+)\s*VP$/);
+				if (match) {
+					const points = parseInt(match[1], 10);
+					if (dataByPlayer[player]) {
+						dataByPlayer[player].points = points;
+					}
+				}
+			});
+
+			observer.observe(vpContainer, { childList: true, subtree: true, characterData: true });
+
+			// Initialize points immediately
+			const vpNode = $(vpContainer).find('.text-fitter-node')[0];
+			if (vpNode) {
+				const vpText = vpNode.textContent.trim();
+				const match = vpText.match(/^(\d+)\s*VP$/);
+				if (match && dataByPlayer[player]) {
+					dataByPlayer[player].points = parseInt(match[1], 10);
+				}
+			}
+		});
+	}
+
 	function useBestGuessForSelf() {
 		let highestPlayerInfoY = 0;
 
@@ -431,6 +472,8 @@
 
 		clearAllIntervals();
 		checkIfStartedInterval = setInterval(checkIfStarted, 250);
+
+		observePlayerPoints();
 	}
 
 	function startScorePage() {
@@ -438,10 +481,16 @@
 		$('.currentActionTimer').remove();
 
 		let finalTimerMessage = '';
-
+		let i = 1;
 		for (const player in dataByPlayer) {
-			const time = convertMillisecondsToMinutesAndSeconds(dataByPlayer[player].time);
-			finalTimerMessage += `${player} took ${time}; `;
+			const ms = dataByPlayer[player].time;
+			const { minutes, seconds, totalSeconds } = getMinutesAndSeconds(ms);
+			const time = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+			const points = dataByPlayer[player].points || 0;
+			const minutesFloat = totalSeconds / 60;
+			const ppm = (points / minutesFloat).toFixed(2);
+			finalTimerMessage += `(${i}) ${player} took ${time} (${ppm} points/minute); `;
+    		i++;
 		}
 
 		finalTimerMessage = finalTimerMessage.slice(0, -2) + '.';
