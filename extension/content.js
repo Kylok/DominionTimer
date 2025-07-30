@@ -256,7 +256,7 @@
 				const vpNode = $(vpContainer).find('.text-fitter-node')[0];
 				if (!vpNode) return;
 				const vpText = vpNode.textContent.trim();
-				const match = vpText.match(/^(\d+)\s*VP$/);
+				const match = vpText.match(/^(-?\d+)\s*VP$/);
 				if (match) {
 					const points = parseInt(match[1], 10);
 					if (dataByPlayer[player]) {
@@ -271,7 +271,7 @@
 			const vpNode = $(vpContainer).find('.text-fitter-node')[0];
 			if (vpNode) {
 				const vpText = vpNode.textContent.trim();
-				const match = vpText.match(/^(\d+)\s*VP$/);
+				const match = vpText.match(/^(-?\d+)\s*VP$/);
 				if (match && dataByPlayer[player]) {
 					dataByPlayer[player].points = parseInt(match[1], 10);
 				}
